@@ -1,0 +1,137 @@
+===== Generate SSL certificates =====
+bash scripts/generate_ssl_certificates.sh
+
+===== Setting up Samba =====
+1. Start ansible-controller
+vagrant up ansible-controller
+
+2. Setting up samba
+a. Start samba
+vagrant up samba
+
+b. Connect to ansible-controller
+vagrant ssh ansible-controller
+sudo su -
+
+c. Fix SSH access
+ansible-playbook fix_ssh_access.yml -i inventory.txt
+
+d. Provision samba. Compilation and installation will take time.
+ansible-playbook provision_samba.yml -i inventory.txt
+
+
+===== Setting up OpenLDAP =====
+1. Start ansible-controller
+vagrant up ansible-controller
+
+2. Setting up openldap
+a. Start ldap
+vagrant up ldap
+
+b. Connect to ansible-controller
+vagrant ssh ansible-controller
+sudo su -
+
+c. Fix SSH access
+ansible-playbook fix_ssh_access.yml -i inventory.txt
+
+d. Provision ldap
+ansible-playbook provision_ldap.yml -i inventory.txt
+
+===== Setting up MySQL =====
+1. Start ansible-controller
+vagrant up ansible-controller
+
+2. Setting up samba
+a. Start mysql servers
+vagrant up mysql1
+vagrant up mysql2
+vagrant up mysql3
+
+b. Connect to ansible-controller
+vagrant ssh ansible-controller
+sudo su -
+
+c. Fix SSH access
+ansible-playbook fix_ssh_access.yml -i inventory.txt
+
+d. Provision samba
+ansible-playbook provision_mysql.yml -i inventory.txt
+
+===== Setting up MongoDB =====
+1. Start ansible-controller
+vagrant up ansible-controller
+
+2. Setting up mongodb
+a. Start mongodb servers
+vagrant up mongodb1
+vagrant up mongodb2
+vagrant up mongodb3
+
+b. Connect to ansible-controller
+vagrant ssh ansible-controller
+sudo su -
+
+c. Fix SSH access
+ansible-playbook fix_ssh_access.yml -i inventory.txt
+
+d. Provision mongodb
+ansible-playbook provision_mongodb.yml -i inventory.txt
+
+===== Setting up PostgreSQL =====
+1. Start ansible-controller
+vagrant up ansible-controller
+
+2. Setting up postgresql
+a. Start postgresql servers
+vagrant up postgres1
+vagrant up postgres2
+vagrant up postgres3
+
+b. Connect to ansible-controller
+vagrant ssh ansible-controller
+sudo su -
+
+c. Fix SSH access
+ansible-playbook fix_ssh_access.yml -i inventory.txt
+
+d. Provision samba
+ansible-playbook provision_postgres.yml -i inventory.txt
+
+===== Setting up PMM  =====
+1. Start ansible-controller
+vagrant up ansible-controller
+
+2. Setting up pmm1
+a. Start pmm1 server
+vagrant up pmm1
+
+b. Connect to ansible-controller
+vagrant ssh ansible-controller
+sudo su -
+
+c. Fix SSH access
+ansible-playbook fix_ssh_access.yml -i inventory.txt
+
+d. Provision samba
+ansible-playbook provision_pmm.yml -i inventory.txt
+
+
+===== Setting up Multifactor  =====
+1. Start ansible-controller
+vagrant up ansible-controller
+
+2. Setting up multifactor
+a. Start multifactor server
+vagrant up multifactor
+
+b. Connect to ansible-controller
+vagrant ssh ansible-controller
+sudo su -
+
+c. Fix SSH access
+ansible-playbook fix_ssh_access.yml -i inventory.txt
+
+d. Provision multifactor server
+ansible-playbook provision_multifactor.yml -i inventory.txt
+

@@ -1,0 +1,191 @@
+-  
+  name: Compile and Install Samba
+  hosts: samba
+  tasks:
+    - name: Compile and install samba
+      script: compile_install_samba.sh
+      args:
+        creates: /opt/samba/sbin/samba
+- 
+  name: Set selinux to permissive
+  hosts: samba
+  tasks:
+    - name: Set selinux to permissive
+      selinux: 
+        policy: targeted
+        state: permissive
+-
+  name: Install troubleshooting tools
+  hosts: samba
+  vars: 
+    packages:
+      - bind-utils
+      - net-tools
+      - openldap-clients
+  tasks:
+    - name: Install troubleshooting packages
+      yum:
+        name: "{{ packages }}"
+        state: present
+-  
+  name: Provision Domain
+  hosts: samba
+  vars: 
+    domain: PERCONA
+    domain_realm: PERCONA.LOCAL
+    domain_password: PerconaLiveAdmin2022
+  tasks:
+    - name: Provision domain {{ domain }}
+      shell: /opt/samba/bin/samba-tool domain provision --realm {{ domain_realm }} --domain {{ domain }} --adminpass={{ domain_password }}
+      args:
+        creates: /opt/samba/private/krb5.conf
+    - name: symlink krb5.conf
+      shell: ln -s /opt/samba/private/krb5.conf /etc
+      args:
+        creates: /etc/krb5.conf
+    - name: Copy /vagrant/ssl/pem/ca-bundle.pem to /opt/samba/private/tls/ca.pem
+      copy: 
+        src: /vagrant/ssl/pem/ca-bundle.pem
+        dest: /opt/samba/private/tls/ca.pem
+        remote_src: yes
+        mode: '0600'     
+    - name: Copy /vagrant/ssl/pem/samba-cert.pem to /opt/samba/private/tls/cert.pem
+      copy: 
+        src: /vagrant/ssl/pem/samba-cert.pem
+        dest: /opt/samba/private/tls/cert.pem
+        remote_src: yes
+        mode: '0600'     
+    - name: Copy /vagrant/ssl/pem/samba-key.pem to /opt/samba/private/tls/key.pem
+      copy: 
+        src: /vagrant/ssl/pem/samba-key.pem
+        dest: /opt/samba/private/tls/key.pem
+        remote_src: yes
+        mode: '0600' 
+    - name: Start Samba service
+      service:
+        name: samba
+        state: started
+    - name: Autostart Samba service
+      service:  
+        name: samba
+        enabled: yes
+
+- name: Set DNS to use Samba service
+  hosts: samba
+  tasks:
+    - name: Disable DNS via Networking manager
+      shell: echo -e "[main]\ndns=none" > /etc/NetworkManager/conf.d/90-dns-none.conf
+      args:
+        creates: /etc/NetworkManager/conf.d/90-dns-none.conf
+    - name: Restart Networking
+      service:
+        name: NetworkManager 
+        state: restarted
+    - name: Remove resolv.conf
+      file:
+        path: /etc/resolv.conf
+        state: absent
+    - name: Create empty resolv.conf
+      file:
+        path: /etc/resolv.conf
+        state: touch
+    - name: Append DNS1 entry to /etc/resolv.conf
+      lineinfile:
+        path: /etc/resolv.conf
+        line: nameserver 127.0.0.1
+    - name: Append DNS2 entry to /etc/resolv.conf
+      lineinfile:
+        path: /etc/resolv.conf
+        line: nameserver 192.168.56.51
+-  
+  name: Add Samba users and groups
+  hosts: samba
+  vars:
+    users:
+      - name: devuser01
+        password: DevUser01
+        group: developers
+      - name: devuser02
+        password: DevUser02
+        group: developers
+      - name: devuser03
+        password: DevUser03
+        group: developers
+      - name: dbauser01
+        password: DbaUser01
+        group: dbadmins
+      - name: dbauser02
+        password: DbaUser02
+        group: dbadmins
+      - name: dbauser03
+        password: DbaUser03
+        group: dbadmins
+      - name: search
+        password: SearchUser01
+        group: ldap
+    samba_group:
+      - developers
+      - dbadmins
+      - ldap
+  tasks:
+    - name: Create group {{ item }}
+      shell: /opt/samba/bin/samba-tool group add {{ item }}
+      with_items: "{{ samba_group }}"
+    - name: Create users {{ item.name }}
+      shell: /opt/samba/bin/samba-tool user create {{ item.name }} {{ item.password }}
+      with_items: "{{ users }}"
+    - name: Add user {{ item.name }} to {{ item.group }}
+      shell: /opt/samba/bin/samba-tool group addmembers {{ item.group }} {{ item.name }}
+      with_items: "{{ users }}"
+
+-  
+  name: Add hosts to DNS
+  hosts: samba
+  vars: 
+    domain_realm: percona.local
+    domain_password: PerconaLiveAdmin2022
+    domain_user: Administrator
+    client_hosts:
+      - name: ldap
+        ip_address: 192.168.56.52
+      - name: mysql1
+        ip_address: 192.168.56.53
+      - name: mysql2
+        ip_address: 192.168.56.54
+      - name: mysql3
+        ip_address: 192.168.56.55
+      - name: mongodb1
+        ip_address: 192.168.56.56
+      - name: mongodb2
+        ip_address: 192.168.56.57
+      - name: mongodb3
+        ip_address: 192.168.56.58
+      - name: postgres1
+        ip_address: 192.168.56.59
+      - name: postgres2
+        ip_address: 192.168.56.60
+      - name: postgres3
+        ip_address: 192.168.56.61
+      - name: pmm1
+        ip_address: 192.168.56.62
+  tasks:
+    - name: Add hosts to Samba DNS
+      shell: /opt/samba/bin/samba-tool dns add {{ ansible_ssh_host }} {{ domain_realm }} {{ item.name }} A {{ item.ip_address }} --username={{ domain_user }} --password={{ domain_password }}
+      with_items: "{{ client_hosts }}"
+
+-  
+  name: Delete hosts from Samba DNS
+  hosts: samba
+  vars: 
+    domain_realm: percona.local
+    domain_password: PerconaLiveAdmin2022
+    domain_user: Administrator
+    client_hosts:
+      - name: "@"
+        ip_address: 10.0.2.15
+      - name: samba
+        ip_address: 10.0.2.15
+  tasks:
+    - name: Delete hosts from Samba DNS
+      shell: /opt/samba/bin/samba-tool dns delete {{ ansible_ssh_host }} {{ domain_realm }} {{ item.name }} A {{ item.ip_address }} --username={{ domain_user }} --password={{ domain_password }}
+      with_items: "{{ client_hosts }}"

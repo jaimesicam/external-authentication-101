@@ -1,0 +1,271 @@
+- 
+  name: Set selinux to permissive
+  hosts: ldap
+  tasks:
+    - name: Set selinux to permissive
+      selinux: 
+        policy: targeted
+        state: permissive
+-
+  name: Install OpenLDAP and troubleshooting packages
+  hosts: ldap
+  vars: 
+    openldap_packages:
+      - openldap
+      - openldap-servers
+      - openldap-clients
+    troubleshooting_packages:
+      - net-tools
+      - bind-utils
+  tasks:
+    - name: Install epel-release
+      yum:
+        name: epel-release
+        state: present
+    - name: Enable "Power Tools"
+      command: "yum config-manager --set-enabled powertools -y"
+    - name: Install OpenLDAP packages
+      yum:
+        name: "{{ openldap_packages }}"
+        state: present
+    - name: Troubleshooting Packages
+      yum:
+        name: "{{ troubleshooting_packages }}"
+        state: present
+-
+  name: Install Apache, Remi PHP and LDAP account manager
+  hosts: ldap
+  vars: 
+    packages:
+      - httpd
+      - httpd-tools
+      - php 
+      - php-fpm
+      - php-mysqlnd
+      - php-opcache 
+      - php-gd 
+      - php-xml 
+      - php-mbstring
+      - php-json
+      - php-gmp
+      - php-zip
+      - php-ldap
+  tasks:
+    - name: Import REMI GPG Key
+      rpm_key:
+        state: present
+        key: https://rpms.remirepo.net/RPM-GPG-KEY-remi2018
+    - name: Install Remi
+      yum:
+        name: https://rpms.remirepo.net/enterprise/remi-release-8.rpm
+        state: present
+    - name: Enable php:remi-7.3
+      shell: dnf module install -y php:remi-7.3
+    - name: Install Apache and PHP packages
+      yum:
+        name: "{{ packages }}"
+        state: present
+    - name: Install LDAP Account Manager
+      yum:
+        name: https://liquidtelecom.dl.sourceforge.net/project/lam/LAM/7.9.1/ldap-account-manager-7.9.1-0.fedora.1.noarch.rpm
+        state: present
+        disable_gpg_check: yes
+-  
+  name: Add SSL certificates and update TLS_CACERT in /etc/openldap/ldap.conf
+  hosts: ldap
+  tasks:
+    - name: Copy /vagrant/ssl/certs/ca-bundle.pem to /etc/openldap/certs/ca.pem
+      copy: 
+        src: /vagrant/ssl/pem/ca-bundle.pem
+        dest: /etc/openldap/certs/ca.pem
+        remote_src: yes
+        owner: ldap
+        group: ldap     
+    - name: Copy /vagrant/ssl/certs/ldap-cert.pem to /etc/openldap/certs/cert.pem
+      copy: 
+        src: /vagrant/ssl/pem/ldap-cert.pem
+        dest: /etc/openldap/certs/cert.pem
+        remote_src: yes     
+        owner: ldap
+        group: ldap    
+    - name: Copy /vagrant/ssl/pem/ldap-key.pem to /etc/openldap/certs/key.pem
+      copy: 
+        src: /vagrant/ssl/pem/ldap-key.pem
+        dest: /etc/openldap/certs/key.pem
+        remote_src: yes 
+        owner: ldap
+        group: ldap    
+    - name: 
+      lineinfile:
+        path: /etc/openldap/ldap.conf
+        line: 'TLS_CACERT	/etc/openldap/certs/ca.pem'
+-  
+  name: Configure OpenLDAP configuration
+  hosts: ldap
+  tasks:
+    - name: Make sure slapd is stopped
+      service:
+        name: slapd
+        state: stopped
+    - name: Copy /vagrant/ldap/slap.ldif to /root
+      copy: 
+        src: /vagrant/ldap/slapd.ldif
+        dest: /root/slapd.ldif
+        remote_src: yes 
+        owner: root
+        group: root    
+    - name: Copy /vagrant/ldap/loglevel.ldif to /root
+      copy: 
+        src: /vagrant/ldap/loglevel.ldif
+        dest: /root/loglevel.ldif
+        remote_src: yes 
+        owner: root
+        group: root    
+    - name: Copy /vagrant/ldap/memberof.ldif to /root
+      copy: 
+        src: /vagrant/ldap/memberof.ldif
+        dest: /root/memberof.ldif
+        remote_src: yes 
+        owner: root
+        group: root    
+    - name: Copy /vagrant/ldap/initial_accounts.ldif to /root
+      copy: 
+        src: /vagrant/ldap/initial_accounts.ldif
+        dest: /root/initial_accounts.ldif
+        remote_src: yes 
+        owner: root
+        group: root  
+    - name: Remove /var/lib/ldap directory
+      file:
+        path: /var/lib/ldap
+        state: absent
+    - name: Remove /etc/openldap/slapd.d directory
+      file:
+        path: /etc/openldap/slapd.d
+        state: absent
+    - name: Create a directory /var/lib/ldap
+      file:
+        path: /var/lib/ldap
+        state: directory
+        mode: '0755'
+        owner: ldap
+        group: ldap
+    - name: Create a directory /etc/openldap/slapd.d
+      file:
+        path: /etc/openldap/slapd.d
+        state: directory
+        mode: '0755'
+        owner: ldap
+        group: ldap
+    - name: Import slapd config
+      shell: slapadd -F /etc/openldap/slapd.d -n 0 -l /root/slapd.ldif
+    - name: Change ownership to ldap
+      file:
+        path: /etc/openldap/slapd.d 
+        state: directory
+        recurse: yes
+        owner: ldap
+        group: ldap
+    - name: Create a file /var/log/slapd.log
+      file:
+        path: /var/log/slapd.log
+        state: touch
+        mode: '0755'
+        owner: ldap
+        group: ldap
+-  
+  name: Configure LDAP Account Manager 
+  hosts: ldap
+  tasks:
+    - name: Update Admin user
+      lineinfile:
+        path: /var/lib/ldap-account-manager/config/lam.conf
+        regexp: '^Admins: cn=Manager,dc=my-domain,dc=com'
+        line: 'Admins: cn=Manager,dc=percona,dc=local'
+    - name: Update User DN
+      lineinfile:
+        path: /var/lib/ldap-account-manager/config/lam.conf
+        regexp: '^types: suffix_user: ou=People,dc=my-domain,dc=com'
+        line: 'types: suffix_user: ou=users,dc=percona,dc=local'
+    - name: Update Group DN
+      lineinfile:
+        path: /var/lib/ldap-account-manager/config/lam.conf
+        regexp: 'types: suffix_group: ou=group,dc=my-domain,dc=com'
+        line: 'types: suffix_group: ou=groups,dc=percona,dc=local'
+-
+  name: Enable PHP and Apache and Start Apache
+  hosts: ldap
+  tasks:
+    - name: Enable PHP-FPM
+      service:  
+        name: php-fpm
+        enabled: yes
+    - name: Enable Apache
+      service:  
+        name: httpd
+        enabled: yes
+    - name: Start httpd service
+      service:
+        name: httpd
+        state: started
+-
+  name: Enable OpenLDAP server
+  hosts: ldap
+  tasks:
+    - name: Enable OpenLDAP service
+      service:  
+        name: slapd
+        enabled: yes
+    - name: Start OpenLDAP service
+      service:
+        name: slapd
+        state: started
+
+-
+  name: Add OpenLDAP additional features
+  hosts: ldap
+  tasks:
+    - name: Add OpenLDAP debug log level
+      shell: ldapmodify -H ldapi:/// -Y EXTERNAL -f /root/loglevel.ldif 
+    - name: Add memberof 
+      shell: ldapadd -H ldapi:/// -Y EXTERNAL -f /root/memberof.ldif
+    - name: Add domain and users
+      shell: ldapadd -H ldaps://ldap.percona.local -D "cn=Manager,dc=percona,dc=local" -f /root/initial_accounts.ldif -w PerconaLiveAdmin2022 
+    - name: Add slapd log entry in /etc/rsyslog.conf
+      lineinfile:
+        path: /etc/rsyslog.conf
+        line: local4.*						/var/log/slapd.log
+    - name: Restart Syslog service
+      service:
+        name: rsyslog
+        state: restarted        
+    - name: Restart OpenLDAP service
+      service:
+        name: slapd
+        state: restarted
+
+
+
+- name: Set DNS to use Samba service
+  hosts: ldap
+  tasks:
+    - name: Disable DNS via Networking manager
+      shell: echo -e "[main]\ndns=none" > /etc/NetworkManager/conf.d/90-dns-none.conf
+      args:
+        creates: /etc/NetworkManager/conf.d/90-dns-none.conf
+    - name: Restart Networking
+      service:
+        name: NetworkManager 
+        state: restarted
+    - name: Remove resolv.conf
+      file:
+        path: /etc/resolv.conf
+        state: absent
+    - name: Create empty resolv.conf
+      file:
+        path: /etc/resolv.conf
+        state: touch
+    - name: Append DNS1 entry to /etc/resolv.conf
+      lineinfile:
+        path: /etc/resolv.conf
+        line: nameserver 192.168.56.51

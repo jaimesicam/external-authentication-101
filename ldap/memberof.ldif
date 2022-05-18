@@ -1,0 +1,8 @@
+#
+# Overlay MemberOf
+#
+dn: olcOverlay=memberof,olcDatabase={2}mdb,cn=config
+objectClass: olcOverlayConfig
+objectClass: olcMemberOf
+olcOverlay: memberof
+olcMemberOfRefint: TRUE

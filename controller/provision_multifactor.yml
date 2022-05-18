@@ -1,0 +1,251 @@
+- 
+  name: Set selinux to permissive
+  hosts: multifactor
+  tasks:
+    - name: Set selinux to permissive
+      selinux: 
+        policy: targeted
+        state: permissive
+- 
+  name: Install 3rd party repositories
+  hosts: multifactor
+  tasks:
+    - name: Install epel-release package
+      yum:
+        name: epel-release
+        state: present
+    - name: Import Percona Packaging Key
+      rpm_key:
+        state: present
+        key: https://repo.percona.com/yum/PERCONA-PACKAGING-KEY
+    - name: Import Percona GPG Key
+      rpm_key:
+        state: present
+        key: https://repo.percona.com/yum/RPM-GPG-KEY-Percona
+    - name: Install Percona release
+      yum:
+        name: "https://repo.percona.com/prel/yum/release/8.0/RPMS/x86_64/percona-release-1.0-27.noarch.rpm"
+        state: present
+    
+-
+  name: Install Percona Server for MySQL and related troubleshooting tools
+  hosts: multifactor
+  vars: 
+    percona_packages:
+      - percona-server-server
+      - percona-server-shared
+      - percona-server-client
+    troubleshooting_packages:
+      - net-tools
+      - openldap-clients
+      - bind-utils
+  tasks:
+    - name: Setup Percona 8.0 repository
+      shell: percona-release setup ps-80 -y
+    - name: Percona Packages
+      yum:
+        name: "{{ percona_packages }}"
+        state: present
+    - name: Troubleshooting Packages
+      yum:
+        name: "{{ troubleshooting_packages }}"
+        state: present
+-
+  name: Copy MySQL certificates
+  hosts: multifactor
+  tasks:
+    - name: Create a directory /var/lib/mysqlcerts
+      file:
+        path: /var/lib/mysqlcerts
+        state: directory
+        mode: '0755'
+        owner: mysql
+        group: mysql
+    - name: Copy /vagrant/ssl/pem/ca-bundle.pem to /var/lib/mysqlcerts/ca-bundle.pem
+      copy: 
+        src: /vagrant/ssl/pem/ca-bundle.pem
+        dest: /var/lib/mysqlcerts/ca-bundle.pem
+        remote_src: yes
+        mode: '0600'
+        owner: mysql
+        group: mysql  
+    - name: Copy MySQL certificates
+      shell: cp -v /vagrant/ssl/pem/mysql* /var/lib/mysqlcerts/
+    - name: Change ownership of MySQL certificates to mysql
+      shell: chown mysql:mysql /var/lib/mysqlcerts/*
+    - name: Change permissions of MySQL certificates
+      shell: chmod 600 /var/lib/mysqlcerts/*      
+-
+  name: Start MySQL
+  hosts: multifactor
+  tasks:
+    - name: Initialize MySQL data directory
+      shell: mysqld --initialize-insecure --user=mysql
+      args:
+        creates: /var/lib/mysql/ibdata1
+    - name: Start MySQL service
+      service:
+        name: mysql
+        state: started
+    - name: Autostart MySQL service
+      service:  
+        name: mysql
+        enabled: yes
+
+-
+  name: Install Percona Server for MongoDB and related troubleshooting tools
+  hosts: multifactor
+  vars: 
+    percona_packages:
+      - percona-server-mongodb
+      - percona-server-mongodb-server
+      - percona-server-mongodb-shell
+      - percona-server-mongodb-tools
+  tasks:
+    - name: Setup MongoDB 5.0 repository
+      shell: percona-release setup psmdb50 -y
+    - name: Percona Packages
+      yum:
+        name: "{{ percona_packages }}"
+        state: present
+-
+  name: Start MongoDB and enable MongoDB
+  hosts: multifactor
+  tasks:
+    - name: Start mongod service
+      service:
+        name: mongod
+        state: started
+    - name: Autostart mongod service
+      service:  
+        name: mongod
+        enabled: yes
+-
+  name: Copy MongoDB certificates
+  hosts: multifactor
+  tasks:
+    - name: Create a directory /var/lib/mongocerts
+      file:
+        path: /var/lib/mongocerts
+        state: directory
+        mode: '0755'
+        owner: mongod
+        group: mongod
+    - name: Copy /vagrant/ssl/pem/ca-bundle.pem to /var/lib/mongocerts/ca-bundle.pem
+      copy: 
+        src: /vagrant/ssl/pem/ca-bundle.pem
+        dest: /var/lib/mongocerts/ca-bundle.pem
+        remote_src: yes
+        mode: '0600'
+        owner: mongod
+        group: mongod  
+    - name: Copy MongoDB certificates
+      shell: cp -v /vagrant/ssl/pem/mongod* /var/lib/mongocerts/
+    - name: Copy MongoDB User certificates
+      shell: cp -v /vagrant/ssl/mongodb/* /var/lib/mongocerts/
+    - name: Change ownership of mongod certificates to mongod
+      shell: chown mongod:mongod /var/lib/mongocerts/*
+    - name: Change permissions of mongod certificates
+      shell: chmod 600 /var/lib/mongocerts/*   
+
+-
+  name: Install Percona Server for PostgreSQL and related troubleshooting tools
+  hosts: multifactor
+  vars: 
+    percona_packages:
+      - percona-postgresql14.x86_64
+      - percona-postgresql14-server.x86_64
+      - percona-postgresql14-contrib.x86_64
+  tasks:
+    - name: Setup Percona 8.0 repository
+      shell: percona-release setup ppg14.2 -y
+    - name: Percona Packages
+      yum:
+        name: "{{ percona_packages }}"
+        state: present
+-
+  name: Copy PostgreSQL certificates
+  hosts: multifactor
+  tasks:
+    - name: Create a directory /var/lib/postgrescerts
+      file:
+        path: /var/lib/postgrescerts
+        state: directory
+        mode: '0755'
+        owner: postgres
+        group: postgres
+    - name: Copy /vagrant/ssl/pem/ca-bundle.pem to /var/lib/postgrescerts/ca-bundle.pem
+      copy: 
+        src: /vagrant/ssl/pem/ca-bundle.pem
+        dest: /var/lib/postgrescerts/ca-bundle.pem
+        remote_src: yes
+        mode: '0600'
+        owner: postgres
+        group: postgres  
+    - name: Copy PostgreSQL certificates
+      shell: cp -v /vagrant/ssl/pem/postgres* /var/lib/postgrescerts/
+    - name: Change ownership of pos certificates to postgrescerts
+      shell: chown postgres:postgres /var/lib/postgrescerts/*
+    - name: Change permissions of postgres certificates
+      shell: chmod 600 /var/lib/postgrescerts/*
+    
+-
+  name: Start PostgreSQL
+  hosts: multifactor
+  tasks:
+    - name: Initialize PostgreSQL data directory
+      shell: /usr/bin/postgresql-14-setup initdb
+      args:
+        creates: /var/lib/pgsql/14/data/postgresql.conf
+    - name: Start PostgreSQL service
+      service:
+        name: postgresql-14
+        state: started
+    - name: Autostart PostgreSQL service
+      service:  
+        name: postgresql-14
+        enabled: yes
+
+- name: Install components for Multifactor
+  hosts: multifactor
+  vars:
+    packages:
+      - google-authenticator
+      - qrencode
+      - cyrus-sasl
+      - realmd
+      - oddjob
+      - oddjob-mkhomedir
+      - sssd
+      - adcli
+      - samba-common-tools
+  tasks:
+    - name: Install Multifactor components
+      yum:
+        name: "{{packages}}"
+        state: present 
+
+
+- name: Set DNS to use Samba service
+  hosts: multifactor
+  tasks:
+    - name: Disable DNS via Networking manager
+      shell: echo -e "[main]\ndns=none" > /etc/NetworkManager/conf.d/90-dns-none.conf
+      args:
+        creates: /etc/NetworkManager/conf.d/90-dns-none.conf
+    - name: Restart Networking
+      service:
+        name: NetworkManager 
+        state: restarted
+    - name: Remove resolv.conf
+      file:
+        path: /etc/resolv.conf
+        state: absent
+    - name: Create empty resolv.conf
+      file:
+        path: /etc/resolv.conf
+        state: touch
+    - name: Append DNS1 entry to /etc/resolv.conf
+      lineinfile:
+        path: /etc/resolv.conf
+        line: nameserver 192.168.56.51

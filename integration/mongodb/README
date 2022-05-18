@@ -1,0 +1,182 @@
+============================================================
+LDAP integration
+============================================================
+Prerequisite
+Edit /etc/openldap/ldap.conf and add the following details:
+TLS_CACERT=/vagrant/ssl/pem/ca-bundle.pem
+
+============================================================
+LDAP authentication over SASL
+============================================================
+1. Install cyrus-sasl
+yum -y install cyrus-sasl
+
+2. Configure SASL to use LDAP by editing /etc/saslauthd.conf
+ldap_servers: ldaps://ldap.percona.local
+ldap_mech: PLAIN
+ldap_search_base: dc=percona,dc=local
+ldap_filter: (cn=%u)
+ldap_bind_dn: cn=Manager,dc=percona,dc=local
+ldap_password: PerconaLiveAdmin2022
+
+3. Start saslauthd and make it run automatically at boot
+systemctl start saslauthd
+systemctl enable saslauthd
+
+4. Test authentication
+Good:
+testsaslauthd -u dbauser01 -p DbaUser01  -f /var/run/saslauthd/mux
+testsaslauthd -u devuser01 -p DevUser01  -f /var/run/saslauthd/mux
+
+Bad:
+testsaslauthd -u dbauser01 -p BadPassword  -f /var/run/saslauthd/mux
+testsaslauthd -u devuser01 -p BadPassword  -f /var/run/saslauthd/mux
+
+5. To integrate MongoDB and SASL, create mongodb.conf in /etc/sasl2 with the following details
+pwcheck_method: saslauthd
+saslauthd_path: /var/run/saslauthd/mux
+mech_list: plain
+
+6. Edit /etc/mongodb.conf and enable external authentication
+security:
+ authorization: enabled
+
+setParameter:
+ authenticationMechanisms: PLAIN,SCRAM-SHA-1
+
+7. Create an external user in MongoDB console
+db.getSiblingDB("$external").createUser( {user : "dbauser01", roles: [ {role: "read", db: "test"} ]} );
+
+8. Restart MongoDB
+systemctl restart mongod
+
+9. Test login
+mongo --host localhost --port 27017 --authenticationMechanism PLAIN --authenticationDatabase '$external' -u dbauser01 -p DbaUser01
+mongo> db.runCommand({connectionStatus: 1})
+
+============================================================
+LDAP authentication and authorization with Native LDAP
+============================================================
+
+1. Create dbadmins and developers roles in MongoDB
+db.createRole(
+ {
+   role: "CN=dbadmins,CN=Users,DC=percona,DC=local",
+   roles: [ "root"],
+   privileges: []
+ }
+);
+db.createRole(
+{
+  role: "CN=developers,CN=Users,DC=percona,DC=local",
+  roles: [
+    "readWriteAnyDatabase"
+  ],
+  privileges: []
+}
+);
+
+2. Edit mongodb.conf use direct LDAP and role access mapping
+security:
+ authorization: "enabled"
+ ldap:
+   bind:
+     queryUser: "CN=search,CN=Users,DC=percona,DC=local"
+     queryPassword: SearchUser01
+   servers: "samba.percona.local"
+   transportSecurity: tls
+   authz:
+      queryTemplate: "dc=percona,dc=local??sub?(&(objectClass=group)(member={PROVIDED_USER}))"
+
+3. Test authentication
+mongo -u "cn=dbauser01,cn=users,dc=percona,dc=local" -p "DbaUser01" --authenticationDatabase '$external' --authenticationMechanism 'PLAIN'
+> db.runCommand({connectionStatus:1})
+
+mongo -u "cn=devuser01,cn=users,dc=percona,dc=local" -p "DevUser01" --authenticationDatabase '$external' --authenticationMechanism 'PLAIN'
+> db.runCommand({connectionStatus:1})
+
+4. Optional, use usertoDNMapping. Edit mongodb.conf
+security:
+ authorization: "enabled"
+ ldap:
+   bind:
+     queryUser: "CN=search,CN=Users,DC=percona,DC=local"
+     queryPassword: SearchUser01
+   servers: "samba.percona.local"
+   transportSecurity: tls
+   authz:
+      queryTemplate: "dc=percona,dc=local??sub?(&(objectClass=group)(member={USER}))"
+   userToDNMapping: >-
+     [
+       {
+          match: "([^@]+)@percona\\.local",
+          substitution: "CN={0},CN=Users,DC=percona,DC=local"
+       }
+     ]
+5. Restart MongoDB
+systemctl restart mongod
+
+6. Test authentication
+mongo -u "dbauser03@percona.local" -p "DbaUser03" --authenticationDatabase '$external' --authenticationMechanism 'PLAIN'
+> db.runCommand({connectionStatus:1})
+
+============================================================
+X509 authentication and Native LDAP authorization
+============================================================
+1. Create dbadmins and developers roles in MongoDB
+db.createRole(
+ {
+   role: "CN=dbadmins,CN=Users,DC=percona,DC=local",
+   roles: [ "root"],
+   privileges: []
+ }
+);
+db.createRole(
+{
+  role: "CN=developers,CN=Users,DC=percona,DC=local",
+  roles: [
+    "readWriteAnyDatabase"
+  ],
+  privileges: []
+}
+);
+
+2. Edit mongodb.conf configuration
+net:
+  port: 27017
+  bindIp: 0.0.0.0
+  tls:
+    mode: requireTLS
+    certificateKeyFile: /var/lib/mongocerts/mongodb2.pem
+    CAFile: /var/lib/mongocerts/ca-bundle.pem
+
+security:
+  authorization: "enabled"
+  ldap:
+    bind:
+      queryUser: "CN=search,CN=Users,DC=percona,DC=local"
+      queryPassword: SearchUser01
+    servers: "samba.percona.local"
+    transportSecurity: tls
+    authz:
+      queryTemplate: "DC=percona,DC=local??sub?(&(objectClass=group)(member={PROVIDED_USER}))"
+setParameter:
+  authenticationMechanisms: "PLAIN,MONGODB-X509"
+
+3. Restart MongoDB
+systemctl restart mongod
+
+4. View client certificate
+openssl x509 -noout -text -in /vagrant/ssl/mongodb/dbauser01-ad.pem
+
+5. Login with client certificate
+mongo --host mongodb2.percona.local --authenticationDatabase '$external' --authenticationMechanism 'MONGODB-X509' --tls --tlsCAFile /vagrant/ssl/pem/ca-bundle.pem --tlsCertificateKeyFile /vagrant/ssl/pem/mongodb/dbauser01-ad.pem
+> db.runCommand({connectionStatus:1})
+
+mongo --host mongodb2.percona.local --authenticationDatabase '$external' --authenticationMechanism 'MONGODB-X509' --tls --tlsCAFile /vagrant/ssl/pem/ca-bundle.pem --tlsCertificateKeyFile /vagrant/ssl/pem/mongodb/devuser01-ad.pem
+
+============================================================
+Notes
+============================================================
+PROVIDER_USER=Username provided at login
+USER=Generated username from userToDNMapping

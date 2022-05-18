@@ -1,0 +1,65 @@
+============================================================
+LDAP integration
+============================================================
+Prerequisite
+Edit /etc/openldap/ldap.conf and add the following details:
+TLS_CACERT=/vagrant/ssl/pem/ca-bundle.pem
+
+============================================================
+Simple bind mode
+============================================================
+1. Edit pg_hba.conf and construct DN with login user, prefix and suffix
+host  all  all  0.0.0.0/0  ldap ldapserver=ldap.percona.local ldapport=389 ldaptls=1 ldapprefix="cn=" ldapsuffix=",ou=users,dc=percona,dc=local"
+
+2. Create user in psql
+CREATE USER dbauser01;
+
+3. Restart PostgreSQL
+systemctl restart postgresql-14
+
+4. Test login
+psql -h 192.168.56.59 -U dbauser01 -d postgres
+
+============================================================
+Search + bind mode
+============================================================
+1. Edit pg_hba.conf and add credentials of search user
+host   all  all  0.0.0.0/0  ldap ldapserver=ldap.percona.local ldapscheme=ldaps ldapport=636 ldapbasedn="DC=percona,DC=local" ldapbinddn="CN=Manager,DC=percona,DC=local" ldapbindpasswd="PerconaLiveAdmin2022" ldapsearchattribute="cn"
+
+2. Create user in psql
+CREATE USER dbauser01;
+
+3. Restart PostgreSQL
+systemctl restart postgresql-14
+
+4. Test login
+psql -h 192.168.56.59 -U dbauser01 -d postgres
+
+============================================================
+Non-LDAP group mapping
+============================================================
+1. Create users devuser01, devuser02 and devuser03
+CREATE USER devuser01;
+CREATE USER devuser02;
+CREATE USER devuser03;
+
+2. Create database called developers in psql
+CREATE DATABASE developers;
+
+3. Create a role for the developers group
+CREATE ROLE developers;
+
+4. Grant the role to a user
+GRANT developers TO devuser01;
+GRANT developers TO devuser02;
+
+5. Configure pg_hba.conf to allow login based on the group
+host   all  +developer  0.0.0.0/0  ldap ldapserver=ldap.percona.local ldapscheme=ldaps ldapport=636 ldapbasedn="DC=percona,DC=local" ldapbinddn="CN=Manager,DC=percona,DC=local" ldapbindpasswd="PerconaLiveAdmin2022" ldapsearchattribute="cn"
+
+6. Restart PostgreSQL
+systemctl restart postgresql-14
+
+7. Test login
+psql -h 192.168.56.61 -U devuser02 -d developers
+\du+
+

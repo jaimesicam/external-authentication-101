@@ -1,0 +1,173 @@
+# percona.local
+dn: dc=percona,dc=local
+objectClass: organization
+objectClass: dcObject
+dc: percona
+o: percona
+
+# users, percona.local
+dn: ou=users,dc=percona,dc=local
+objectClass: organizationalUnit
+ou: users
+
+# groups, percona.local
+dn: ou=groups,dc=percona,dc=local
+objectClass: organizationalUnit
+ou: groups
+
+# developers, groups, percona.local
+dn: cn=developers,ou=groups,dc=percona,dc=local
+objectClass: posixGroup
+gidNumber: 10000
+cn: developers
+memberUid: devuser01
+memberUid: devuser02
+memberUid: devuser03
+
+# dbadmins, groups, percona.local
+dn: cn=dbadmins,ou=groups,dc=percona,dc=local
+objectClass: posixGroup
+gidNumber: 10001
+cn: dbadmins
+memberUid: dbauser01
+memberUid: dbauser02
+memberUid: dbauser03
+
+# everyone, groups, percona.local
+dn: cn=everyone,ou=groups,dc=percona,dc=local
+objectClass: posixGroup
+gidNumber: 10002
+cn: everyone
+
+# dbauser01, users, percona.local
+dn: cn=dbauser01,ou=users,dc=percona,dc=local
+objectClass: posixAccount
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+loginShell: /bin/bash
+homeDirectory: /home/dbauser01
+uid: dbauser01
+cn: dbauser01
+uidNumber: 10000
+gidNumber: 10002
+userPassword:: e1NTSEF9cEw1VDIvNVlpckxtQ0xjQnpWWmllUU1DY3dGTGNrWmg=
+sn: dbauser01
+
+# dbauser02, users, percona.local
+dn: cn=dbauser02,ou=users,dc=percona,dc=local
+objectClass: posixAccount
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+loginShell: /bin/bash
+homeDirectory: /home/dbauser02
+uid: dbauser02
+cn: dbauser02
+uidNumber: 10001
+gidNumber: 10002
+sn: dbauser02
+userPassword:: e1NTSEF9dERyelZDK3MwUkoweXpxQ1Ivdk1MaGRpZFdOdk9VMXU=
+
+# dbauser03, users, percona.local
+dn: cn=dbauser03,ou=users,dc=percona,dc=local
+objectClass: posixAccount
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+loginShell: /bin/bash
+homeDirectory: /home/dbauser03
+userPassword:: e1NTSEF9ZUd5bm9weDNCdGh3cTJQQ2p2VXg3YmkzTHRKcFNWQkI=
+uid: dbauser03
+cn: dbauser03
+uidNumber: 10005
+gidNumber: 10002
+sn: dbauser03
+
+# devuser01, users, percona.local
+dn: cn=devuser01,ou=users,dc=percona,dc=local
+objectClass: posixAccount
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+loginShell: /bin/bash
+homeDirectory: /home/devuser01
+userPassword:: e1NTSEF9OXZXQ3lhR1RLaTdlODlkVnBENmJVbFRPa3pSR1RUSlI=
+uid: devuser01
+cn: devuser01
+uidNumber: 10002
+gidNumber: 10002
+sn: devuser01
+
+# devuser02, users, percona.local
+dn: cn=devuser02,ou=users,dc=percona,dc=local
+objectClass: posixAccount
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+loginShell: /bin/bash
+homeDirectory: /home/devuser02
+uid: devuser02
+cn: devuser02
+uidNumber: 10003
+gidNumber: 10002
+sn: devuser02
+userPassword:: e1NTSEF9ejVtdTFrVlhPYitwbUN3ZVdUeGYvZUo5OWhKVFZGUTE=
+
+# devuser03, users, percona.local
+dn: cn=devuser03,ou=users,dc=percona,dc=local
+objectClass: posixAccount
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+loginShell: /bin/bash
+homeDirectory: /home/devuser03
+userPassword:: e1NTSEF9QitzOU50RkhId3h1a01pS1FOdW81QjhuUlNONFRFeFo=
+uid: devuser03
+cn: devuser03
+uidNumber: 10006
+gidNumber: 10002
+sn: devuser03
+
+# search, users, percona.local
+dn: cn=search,ou=users,dc=percona,dc=local
+objectClass: posixAccount
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+loginShell: /bin/bash
+homeDirectory: /home/search
+uid: search
+cn: search
+userPassword:: e1NTSEF9cmJyZ2RuT0tnNTdVOUlwWW03RXc3Zno1NGxGTlJ5NWk=
+uidNumber: 10004
+gidNumber: 10002
+sn: search
+
+# developers_gon, groups, percona.local
+dn: cn=developers_gon,ou=groups,dc=percona,dc=local
+objectClass: groupOfNames
+cn: developers_gon
+member: cn=devuser01,ou=users,dc=percona,dc=local
+member: cn=devuser02,ou=users,dc=percona,dc=local
+member: cn=devuser03,ou=users,dc=percona,dc=local
+
+# dbadmins_gon, groups, percona.local
+dn: cn=dbadmins_gon,ou=groups,dc=percona,dc=local
+objectClass: groupOfNames
+cn: dbadmins_gon
+member: cn=dbauser01,ou=users,dc=percona,dc=local
+member: cn=dbauser02,ou=users,dc=percona,dc=local
+member: cn=dbauser03,ou=users,dc=percona,dc=local
+
+# everyone_gon, groups, percona.local
+dn: cn=everyone_gon,ou=groups,dc=percona,dc=local
+objectClass: groupOfNames
+cn: everyone_gon
+member: cn=dbauser01,ou=users,dc=percona,dc=local
+member: cn=dbauser02,ou=users,dc=percona,dc=local
+member: cn=dbauser03,ou=users,dc=percona,dc=local
+member: cn=devuser01,ou=users,dc=percona,dc=local
+member: cn=devuser02,ou=users,dc=percona,dc=local
+member: cn=devuser03,ou=users,dc=percona,dc=local
+member: cn=search,ou=users,dc=percona,dc=local

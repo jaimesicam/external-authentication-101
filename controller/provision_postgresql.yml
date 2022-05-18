@@ -1,0 +1,109 @@
+- 
+  name: Set selinux to permissive
+  hosts: postgresql_servers
+  tasks:
+    - name: Set selinux to permissive
+      selinux: 
+        policy: targeted
+        state: permissive
+-
+  name: Install Percona Server for PostgreSQL and related troubleshooting tools
+  hosts: postgresql_servers
+  vars: 
+    percona_packages:
+      - percona-postgresql14.x86_64
+      - percona-postgresql14-server.x86_64
+      - percona-postgresql14-contrib.x86_64
+    troubleshooting_packages:
+      - net-tools
+      - openldap-clients
+      - bind-utils
+  tasks:
+    - name: Import Percona Packaging Key
+      rpm_key:
+        state: present
+        key: https://repo.percona.com/yum/PERCONA-PACKAGING-KEY
+    - name: Import Percona GPG Key
+      rpm_key:
+        state: present
+        key: https://repo.percona.com/yum/RPM-GPG-KEY-Percona
+    - name: Install troubleshooting packages
+      yum:
+        name: "https://repo.percona.com/prel/yum/release/8.0/RPMS/x86_64/percona-release-1.0-27.noarch.rpm"
+        state: present
+    - name: Setup PostgreSQL repository
+      shell: percona-release setup ppg14.2 -y
+    - name: Percona Packages
+      yum:
+        name: "{{ percona_packages }}"
+        state: present
+    - name: Troubleshooting Packages
+      yum:
+        name: "{{ troubleshooting_packages }}"
+        state: present
+-
+  name: Copy PostgreSQL certificates
+  hosts: postgresql_servers
+  tasks:
+    - name: Create a directory /var/lib/postgrescerts
+      file:
+        path: /var/lib/postgrescerts
+        state: directory
+        mode: '0755'
+        owner: postgres
+        group: postgres
+    - name: Copy /vagrant/ssl/pem/ca-bundle.pem to /var/lib/postgrescerts/ca-bundle.pem
+      copy: 
+        src: /vagrant/ssl/pem/ca-bundle.pem
+        dest: /var/lib/postgrescerts/ca-bundle.pem
+        remote_src: yes
+        mode: '0600'
+        owner: postgres
+        group: postgres  
+    - name: Copy PostgreSQL certificates
+      shell: cp -v /vagrant/ssl/pem/postgres* /var/lib/postgrescerts/
+    - name: Change ownership of pos certificates to postgrescerts
+      shell: chown postgres:postgres /var/lib/postgrescerts/*
+    - name: Change permissions of postgres certificates
+      shell: chmod 600 /var/lib/postgrescerts/*
+    
+-
+  name: Start PostgreSQL
+  hosts: postgresql_servers
+  tasks:
+    - name: Initialize PostgreSQL data directory
+      shell: /usr/bin/postgresql-14-setup initdb
+      args:
+        creates: /var/lib/pgsql/14/data/postgresql.conf
+    - name: Start PostgreSQL service
+      service:
+        name: postgresql-14
+        state: started
+    - name: Autostart PostgreSQL service
+      service:  
+        name: postgresql-14
+        enabled: yes
+
+- name: Set DNS to use Samba service
+  hosts: postgresql_servers
+  tasks:
+    - name: Disable DNS via Networking manager
+      shell: echo -e "[main]\ndns=none" > /etc/NetworkManager/conf.d/90-dns-none.conf
+      args:
+        creates: /etc/NetworkManager/conf.d/90-dns-none.conf
+    - name: Restart Networking
+      service:
+        name: NetworkManager 
+        state: restarted
+    - name: Remove resolv.conf
+      file:
+        path: /etc/resolv.conf
+        state: absent
+    - name: Create empty resolv.conf
+      file:
+        path: /etc/resolv.conf
+        state: touch
+    - name: Append DNS1 entry to /etc/resolv.conf
+      lineinfile:
+        path: /etc/resolv.conf
+        line: nameserver 192.168.56.51

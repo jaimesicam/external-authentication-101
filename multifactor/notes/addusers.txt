@@ -1,0 +1,9 @@
+MySQL:
+INSTALL PLUGIN auth_pam_compat SONAME 'auth_pam_compat.so';
+CREATE USER dbauser01 with auth_pam_compat;
+
+MongoDB:
+db.getSiblingDB("$external").createUser( {user : "dbauser01", roles: [ {role: "read", db: "test"} ]} );
+
+PostgreSQL:
+CREATE USER dbauser01;

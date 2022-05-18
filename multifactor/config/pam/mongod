@@ -1,0 +1,4 @@
+auth required pam_google_authenticator.so debug user=mongod secret=/var/lib/googleusers/mongod/${USER}/.google_authenticator forward_pass
+auth required pam_sss.so use_first_pass
+account required pam_sss.so
+

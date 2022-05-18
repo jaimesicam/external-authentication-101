@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set -e
+set -x
+
+function install() {
+  echo "Installing...."
+  sudo yum -y install epel-release
+  sudo yum -y install ansible
+  ansible --version
+}
+
+function copy_files_to_root() {
+  echo "Copy files to root directory"
+  sudo cp -p /vagrant/controller/* /root
+}
+install
+copy_files_to_root
+echo "Finished installing"

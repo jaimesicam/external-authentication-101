@@ -1,0 +1,24 @@
+#!/bin/bash
+
+OS_VERSION=`cat /etc/os-release |grep '^NAME='|cut -d '"' -f2`
+ROOT_PASSWORD=PerconaLive2022
+
+echo "Fixing SSH settings"
+echo "OS_VERSION: $OS_VERSION"
+if [[ "$OS_VERSION" == "CentOS Linux" || "$OS_VERSION" == "CentOS Stream" ]]
+then
+  sudo sed -i 's/#PermitRootLogin yes/PermitRootLogin yes/g' /etc/ssh/sshd_config
+  sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+  sudo systemctl restart sshd
+elif [[ "$OS_VERSION" == "Ubuntu"  ]]
+then
+  sudo sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/g' /etc/ssh/sshd_config
+  sudo sed -i 's/PasswordAuthentication no/PermitRootLogin yes/g' /etc/ssh/sshd_config
+  sudo systemctl restart ssh
+fi
+
+echo "Change root password"
+echo -e "$ROOT_PASSWORD\n$ROOT_PASSWORD" | sudo passwd root
+
+
+

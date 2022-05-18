@@ -1,0 +1,92 @@
+============================================================
+LDAP integration
+============================================================
+Prerequisite
+Edit /etc/openldap/ldap.conf and add the following details:
+TLS_CACERT=/vagrant/ssl/pem/ca-bundle.pem
+
+============================================================
+1:1 Mapping
+============================================================
+
+1. Edit my.cnf and add the following:
+[mysqld]
+plugin-load=authentication_ldap_simple.so
+authentication_ldap_simple_server_host=ldap.percona.local
+authentication_ldap_simple_server_port=636
+authentication_ldap_simple_ssl=ON
+authentication_ldap_simple_bind_base_dn="dc=percona,dc=local"
+authentication_ldap_simple_bind_root_dn="cn=Manager,dc=percona,dc=local"
+authentication_ldap_simple_bind_root_pwd="PerconaLiveAdmin2022"
+authentication_ldap_simple_user_search_attr="cn"
+
+2. Restart MySQL
+systemctl restart mysql
+
+3. Create users in MySQL console
+mysql> CREATE USER dbauser01 IDENTIFIED WITH authentication_ldap_simple BY 'cn=dbauser01,ou=users,dc=percona,dc=local';
+mysql> CREATE USER dbauser02 IDENTIFIED WITH authentication_ldap_simple;
+mysql> GRANT ALL PRIVILEGES ON *.* TO dbauser01;
+
+4. Login test
+mysql --enable-cleartext-plugin -u dbauser01 -pDbaUser01 -e 'SHOW GRANTS'
+mysql --enable-cleartext-plugin -u dbauser02 -pDbaUser02
+
+============================================================
+Role Access Mapping
+============================================================
+1. Edit my.cnf and add the following:
+
+[mysqld]
+plugin-load=authentication_ldap_simple.so
+authentication_ldap_simple_server_host=ldap.percona.local
+authentication_ldap_simple_server_port=636
+authentication_ldap_simple_ssl=ON
+authentication_ldap_simple_bind_base_dn="dc=percona,dc=local"
+authentication_ldap_simple_bind_root_dn="cn=Manager,dc=percona,dc=local"
+authentication_ldap_simple_bind_root_pwd="PerconaLiveAdmin2022"
+authentication_ldap_simple_user_search_attr="cn"
+
+2. Restart MySQL
+systemctl restart mysql
+
+3. Create Proxy account from MySQL console
+mysql> CREATE USER ''@'' IDENTIFIED WITH authentication_ldap_simple  AS '+ou=users,dc=percona,dc=local#dbadmins=mysql_dbadmins,developers=mysql_developers';
+
+4. Install mysql_no_login plugin
+mysql> INSTALL PLUGIN mysql_no_login SONAME 'mysql_no_login.so';
+
+5. Create Proxied accounts
+mysql> CREATE USER mysql_dbadmins@'%' IDENTIFIED WITH mysql_no_login;
+mysql> GRANT ALL PRIVILEGES ON *.* TO mysql_dbadmins@'%';
+mysql> CREATE USER mysql_developers@'%' IDENTIFIED WITH mysql_no_login;
+mysql> GRANT ALL PRIVILEGES ON applications.* TO mysql_developers@'%';
+
+6. Grant Proxy access
+mysql> GRANT PROXY ON mysql_dbadmins@'%' TO ''@'';
+mysql> GRANT PROXY ON mysql_developers@'%' TO ''@'';
+
+7. Login test
+mysql --enable-cleartext-plugin -u devuser03 -pDevUser03 -e 'SELECT user(), current_user(), @@proxy_user;'
+mysql --enable-cleartext-plugin -u devuser03 -pDevUser03 -e 'SHOW GRANTS;'
+
+mysql --enable-cleartext-plugin -u dbauser03 -pDbaUser03 -e 'SELECT user(), current_user(), @@proxy_user;'
+mysql --enable-cleartext-plugin -u dbauser03 -pDbaUser03 -e 'SHOW GRANTS;'
+
+============================================================
+Notes
+============================================================
+mysql> SHOW GLOBAL VARIABLES LIKE 'authentication_ldap_simple_group%';
++------------------------------------------------+-----------------------------------------------------------------------------------+
+| Variable_name                                  | Value                                                                             |
++------------------------------------------------+-----------------------------------------------------------------------------------+
+| authentication_ldap_simple_group_search_attr   | cn                                                                                |
+| authentication_ldap_simple_group_search_filter | (|(&(objectClass=posixGroup)(memberUid={UA}))(&(objectClass=group)(member={UD}))) |
++------------------------------------------------+-----------------------------------------------------------------------------------+
+2 rows in set (0.00 sec)
+
+
+You may need to customize these variables if the default group filter is not working!
+{UA} - Username
+{UD} - Full DN
+

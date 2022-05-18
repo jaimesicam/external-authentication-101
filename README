@@ -1,0 +1,6 @@
+
+1. To use the sandboxes, you need to install Vagrant and Virtualbox in the host machine
+2. The next step is to generate SSL certificates. You may run ./scripts/generate_ssl_certificates.sh to generate them. The certificates will be generated in the ssl directory and will be accessible in all VMs in the directory /vagrant/ssl
+3. Check PROVISIONING_TEST_MACHINES to know how to provision the test machines. Basically, you need to at least start ansible-controller, samba and ldap(Eg. vagrant up ansible-controller && vagrant up samba &&  vagrant up ldap). Once started, login to ansible-controller to provision samba and then ldap. Once complete, you can start the other VMs, use ansible-controller to provision them and test external authentication integration.
+4. Check integration/*/README for examples on how to integrate external authentication with MySQL, MongoDB, PostgreSQL, and PMM
+5. Check  USERS for username:password combination

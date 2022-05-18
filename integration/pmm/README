@@ -1,0 +1,133 @@
+============================================================
+LDAP integration
+============================================================
+
+1. Edit /etc/gragana/grafana.ini
+[auth.ldap]
+enabled = true
+config_file = /etc/grafana/ldap.toml
+allow_sign_up = true
+
+2. Edit /etc/grafana/ldap.toml
+[[servers]]
+host = "ldap.percona.local"
+port = 389
+use_ssl = false
+start_tls = true
+ssl_skip_verify = false
+root_ca_cert = "/srv/nginx/ca-certs.pem"
+bind_dn = "cn=Manager,dc=percona,dc=local"
+bind_password = "PerconaLiveAdmin2022"
+search_filter = "(cn=%s)"
+search_base_dns = ["dc=percona,dc=local"]
+
+group_search_filter = "(&(objectClass=posixGroup)(memberUid=%s))"
+group_search_base_dns = ["ou=groups,dc=percona,dc=local"]
+group_search_filter_user_attribute = "cn"
+
+[servers.attributes]
+username = "cn"
+
+
+[[servers.group_mappings]]
+group_dn = "cn=dbadmins,ou=groups,dc=percona,dc=local"
+org_role = "Admin"
+
+[[servers.group_mappings]]
+group_dn = "cn=developers,ou=groups,dc=percona,dc=local"
+org_role = "Editor"
+
+[[servers.group_mappings]]
+group_dn = "cn=everyone,ou=groups,dc=percona,dc=local"
+org_role = "Viewer"
+
+3. Add LDAP debugging logs by editing /etc/grafana/grafana.ini
+[log]
+filters = ldap:debug
+
+4. Restart PMM
+docker restart pmm-server
+
+NOTES
+On samba, ldap.toml would look like this:
+[[servers]]
+host = "samba.percona.local"
+port = 636
+use_ssl = true
+start_tls = false
+ssl_skip_verify = false
+root_ca_cert = "/srv/nginx/ca-certs.pem"
+bind_dn = "cn=Administrator,cn=Users,dc=percona,dc=local"
+bind_password = "PerconaLiveAdmin2022"
+search_filter = "(sAMAccountName=%s)"
+search_base_dns = ["dc=percona,dc=local"]
+group_search_filter = "(&(objectClass=group)(member=%s))"
+group_search_base_dns = ["cn=Users,dc=percona,dc=local"]
+group_search_filter_user_attribute = "sAMAccountName"
+
+[servers.attributes]
+username = "cn"
+member_of = "memberOf"
+email = "email"
+name = "name"
+
+[[servers.group_mappings]]
+group_dn = "cn=dbadmins,cn=Users,dc=percona,dc=local"
+org_role = "Admin"
+
+[[servers.group_mappings]]
+group_dn = "cn=developers,cn=Users,dc=percona,dc=local"
+org_role = "Editor"
+
+[[servers.group_mappings]]
+group_dn = "cn=everyone,cn=Users,dc=percona,dc=local"
+org_role = "Viewer"
+
+============================================================
+Auth0 Integration
+============================================================
+1. Set root_url under the [server] section of /etc/grafana/grafana.ini
+[server]
+root_url = %(protocol)s://pmm1.percona.local/graph/
+
+2. Add Auth0 configuration in /etc/grafana/grafana.ini
+[auth.generic_oauth]
+enabled = true
+allow_sign_up = true
+name = Auth0
+client_id = xxxxx
+client_secret = *****
+scopes = openid profile email
+auth_url = https://pmmdemo.auth0.com/authorize
+token_url = https://pmmdemo.auth0.com/oauth/token
+api_url = https://pmmdemo.auth0.com/userinfo
+role_attribute_path = contains('https://pmmdemo:auth0:com/groups'[*], 'PMM_Admin') && 'Admin' || contains('https://pmmdemo:auth0:com/groups'[*], 'PMM_Editor') && 'Editor' || 'Viewer'
+
+3. Restart PMM
+docker restart pmm-server
+
+============================================================
+Okta Integration
+============================================================
+1. Set root_url under the [server] section of /etc/grafana/grafana.ini
+[server]
+root_url = %(protocol)s://pmm1.percona.local/graph/
+
+2. Add Okta configuration in /etc/grafana/grafana.ini
+[auth.okta]
+name = Okta
+icon = okta
+enabled = true
+allow_sign_up = true
+client_id = ****
+client_secret = *****
+scopes = openid profile email groups
+auth_url = https://dev-pmmdemo.okta.com/oauth2/default/v1/authorize
+token_url = https://dev-pmmdemo.okta.com/oauth2/default/v1/token
+api_url = https://dev-pmmdemo.okta.com/oauth2/default/v1/userinfo
+allowed_domains =
+allowed_groups =
+role_attribute_path = contains("groups"[*], 'PMM_Admin') && 'Admin' || contains("groups"[*], 'PMM_Editor') && 'Editor' || 'Viewer'
+
+3. Restart PMM
+docker restart pmm-server

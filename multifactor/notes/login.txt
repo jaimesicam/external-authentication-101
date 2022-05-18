@@ -1,0 +1,13 @@
+MySQL:
+mysql -u dbauser01 --enable-cleartext-plugin -pDbaUser01
+SHOW GRANTS;
+
+MongoDB:
+mongo --host localhost --port 27017 --authenticationMechanism PLAIN --authenticationDatabase '$external' -u dbauser01
+mongo --host localhost --port 27017 --authenticationMechanism PLAIN --authenticationDatabase '$external' -u dbauser01 -p DbaUser01
+db.runCommand({connectionStatus:1}
+
+PostgreSQL:
+psql -U dbauser01 -d postgres -h 192.168.56.63
+PGPASSWORD=DbaUser01 psql -U dbauser01 -d postgres -h 192.168.56.63
+\du+

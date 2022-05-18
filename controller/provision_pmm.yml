@@ -1,0 +1,152 @@
+- 
+  name: Set selinux to permissive
+  hosts: pmm1
+  tasks:
+    - name: Set selinux to permissive
+      selinux: 
+        policy: targeted
+        state: permissive
+-
+  name: Install Docker
+  hosts: pmm1
+  vars:
+    packages:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+  tasks:
+    - name: Import Docker GPG Key
+      rpm_key:
+        state: present
+        key: https://download.docker.com/linux/centos/gpg
+    - name: Install yum-utils package
+      yum:
+        name: yum-utils
+        state: present
+    - name: Add Docker CE repository
+      get_url:
+        url: https://download.docker.com/linux/centos/docker-ce.repo
+        dest: /etc/yum.repos.d/docker-ce.repo
+    - name: Install Docker CE package
+      yum:
+        name: '{{ packages }}'
+        state: present
+-
+  name: Install Python Dependencies
+  hosts: pmm1
+  tasks:
+    - name: Install Python Pip
+      yum:
+        name: python3-pip
+        state: present
+    - name: Install docker-py
+      pip:
+        name: docker
+-
+  name: Start Docker
+  hosts: pmm1
+  tasks:
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+    - name: Autostart Docker service
+      service:  
+        name: docker
+        enabled: yes
+-  
+  name: Add SSL certificates and update TLS_CACERT in /etc/openldap/ldap.conf
+  hosts: pmm1
+  tasks:
+    - name: Create a directory /etc/pmm-certs
+      file:
+        path: /etc/pmm-certs
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+    - name: Copy /vagrant/ssl/pem/ca-bundle.pem to /etc/pmm-certs/ca-certs.pem
+      copy: 
+        src: /vagrant/ssl/pem/ca-bundle.pem
+        dest: /etc/pmm-certs/ca-certs.pem
+        remote_src: yes
+        mode: '0755'
+        owner: root
+        group: root     
+    - name: Copy /vagrant/ssl/pem/pmm1-cert.pem to /etc/pmm-certs/certificate.crt
+      copy: 
+        src: /vagrant/ssl/pem/pmm1-cert.pem
+        dest: /etc/pmm-certs/certificate.crt
+        remote_src: yes     
+        mode: '0755'
+        owner: root
+        group: root    
+    - name: Copy /vagrant/ssl/pem/pmm1-key.pem to /etc/pmm-certs/certificate.key
+      copy: 
+        src: /vagrant/ssl/pem/pmm1-key.pem
+        dest: /etc/pmm-certs/certificate.key
+        remote_src: yes 
+        mode: '0755'
+        owner: root
+        group: root    
+    - name: Copy /vagrant/ssl/pem/pmm-dhparam.pem to /etc/pmm-certs/dhparam.pem
+      copy: 
+        src: /vagrant/ssl/pem/pmm-dhparam.pem
+        dest: /etc/pmm-certs/dhparam.pem
+        remote_src: yes 
+        mode: '0755'
+        owner: root
+        group: root    
+    - name: 
+      lineinfile:
+        path: /etc/openldap/ldap.conf
+        line: 'TLS_CACERT	/etc/pmm-certs/ca-certs.pem'
+-
+  name: Install PMM
+  hosts: pmm1
+  tasks:
+  - name: Create pmm-data container
+    docker_container:
+      name: pmm-data
+      image: percona/pmm-server:2
+      pull: yes
+      state: present
+      volumes:
+      - /srv
+  - name: Create PMM container
+    docker_container:
+      name: pmm-server
+      image: percona/pmm-server:2
+      state: started
+      restart_policy: always
+      pull: yes
+      ports:
+      - "80:80"
+      - "443:443"
+      volumes_from:
+      - pmm-data
+      volumes:
+      - /etc/pmm-certs:/srv/nginx
+- name: Set DNS to use Samba service
+  hosts: pmm1
+  tasks:
+    - name: Disable DNS via Networking manager
+      shell: echo -e "[main]\ndns=none" > /etc/NetworkManager/conf.d/90-dns-none.conf
+      args:
+        creates: /etc/NetworkManager/conf.d/90-dns-none.conf
+    - name: Restart Networking
+      service:
+        name: NetworkManager 
+        state: restarted
+    - name: Remove resolv.conf
+      file:
+        path: /etc/resolv.conf
+        state: absent
+    - name: Create empty resolv.conf
+      file:
+        path: /etc/resolv.conf
+        state: touch
+    - name: Append DNS1 entry to /etc/resolv.conf
+      lineinfile:
+        path: /etc/resolv.conf
+        line: nameserver 192.168.56.51

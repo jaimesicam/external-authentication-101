@@ -1,0 +1,31 @@
+samba ansible_host=192.168.56.51 ansible_ssh_pass=PerconaLive2022
+ldap ansible_host=192.168.56.52 ansible_ssh_pass=PerconaLive2022
+mysql1 ansible_host=192.168.56.53 ansible_ssh_pass=PerconaLive2022
+mysql2 ansible_host=192.168.56.54 ansible_ssh_pass=PerconaLive2022
+mysql3 ansible_host=192.168.56.55 ansible_ssh_pass=PerconaLive2022
+mongodb1 ansible_host=192.168.56.56 ansible_ssh_pass=PerconaLive2022
+mongodb2 ansible_host=192.168.56.57 ansible_ssh_pass=PerconaLive2022
+mongodb3 ansible_host=192.168.56.58 ansible_ssh_pass=PerconaLive2022
+postgres1 ansible_host=192.168.56.59 ansible_ssh_pass=PerconaLive2022
+postgres2 ansible_host=192.168.56.60 ansible_ssh_pass=PerconaLive2022
+postgres3 ansible_host=192.168.56.61 ansible_ssh_pass=PerconaLive2022
+pmm1 ansible_host=192.168.56.62 ansible_ssh_pass=PerconaLive2022
+multifactor ansible_host=192.168.56.63 ansible_ssh_pass=PerconaLive2022
+
+[mongodb_servers]
+mongodb1
+mongodb2
+mongodb3
+
+[mysql_servers]
+mysql1
+mysql2
+mysql3
+
+[postgresql_servers]
+postgres1
+postgres2
+postgres3
+
+[pmm_servers]
+pmm1
