@@ -3,7 +3,7 @@ LDAP integration
 ============================================================
 Prerequisite
 Edit /etc/openldap/ldap.conf and add the following details:
-TLS_CACERT=/vagrant/ssl/pem/ca-bundle.pem
+TLS_CACERT /vagrant/ssl/pem/ca-bundle.pem
 
 ============================================================
 1:1 Mapping

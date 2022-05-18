@@ -3,36 +3,42 @@ LDAP integration
 ============================================================
 Prerequisite
 Edit /etc/openldap/ldap.conf and add the following details:
-TLS_CACERT=/vagrant/ssl/pem/ca-bundle.pem
+TLS_CACERT /vagrant/ssl/pem/ca-bundle.pem
 
 ============================================================
 Simple bind mode
 ============================================================
-1. Edit pg_hba.conf and construct DN with login user, prefix and suffix
+1. Edit /var/lib/pgsql/14/data/pg_hba.conf and construct DN with login user, prefix and suffix
 host  all  all  0.0.0.0/0  ldap ldapserver=ldap.percona.local ldapport=389 ldaptls=1 ldapprefix="cn=" ldapsuffix=",ou=users,dc=percona,dc=local"
 
-2. Create user in psql
+2. Allow access to all network interfaces by editing /var/lib/pgsql/14/data/postgresql.conf
+listen_addresses = '*' 
+
+3. Create user in psql
 CREATE USER dbauser01;
 
-3. Restart PostgreSQL
+4. Restart PostgreSQL
 systemctl restart postgresql-14
 
-4. Test login
+5. Test login
 psql -h 192.168.56.59 -U dbauser01 -d postgres
 
 ============================================================
 Search + bind mode
 ============================================================
-1. Edit pg_hba.conf and add credentials of search user
+1. Edit /var/lib/pgsql/14/data/pg_hba.conf and add credentials of search user
 host   all  all  0.0.0.0/0  ldap ldapserver=ldap.percona.local ldapscheme=ldaps ldapport=636 ldapbasedn="DC=percona,DC=local" ldapbinddn="CN=Manager,DC=percona,DC=local" ldapbindpasswd="PerconaLiveAdmin2022" ldapsearchattribute="cn"
 
-2. Create user in psql
+2. Allow access to all network interfaces by editing /var/lib/pgsql/14/data/postgresql.conf
+listen_addresses = '*' 
+
+3. Create user in psql
 CREATE USER dbauser01;
 
-3. Restart PostgreSQL
+4. Restart PostgreSQL
 systemctl restart postgresql-14
 
-4. Test login
+5. Test login
 psql -h 192.168.56.59 -U dbauser01 -d postgres
 
 ============================================================
@@ -47,19 +53,23 @@ CREATE USER devuser03;
 CREATE DATABASE developers;
 
 3. Create a role for the developers group
-CREATE ROLE developers;
+CREATE ROLE developers WITH CREATEDB;
 
 4. Grant the role to a user
 GRANT developers TO devuser01;
 GRANT developers TO devuser02;
 
-5. Configure pg_hba.conf to allow login based on the group
-host   all  +developer  0.0.0.0/0  ldap ldapserver=ldap.percona.local ldapscheme=ldaps ldapport=636 ldapbasedn="DC=percona,DC=local" ldapbinddn="CN=Manager,DC=percona,DC=local" ldapbindpasswd="PerconaLiveAdmin2022" ldapsearchattribute="cn"
+5. Configure /var/lib/pgsql/14/data/pg_hba.conf to allow login based on the group
+host   all  +developers  0.0.0.0/0  ldap ldapserver=ldap.percona.local ldapscheme=ldaps ldapport=636 ldapbasedn="DC=percona,DC=local" ldapbinddn="CN=Manager,DC=percona,DC=local" ldapbindpasswd="PerconaLiveAdmin2022" ldapsearchattribute="cn"
 
-6. Restart PostgreSQL
+6. Allow access to all network interfaces by editing /var/lib/pgsql/14/data/postgresql.conf
+listen_addresses = '*' 
+
+7. Restart PostgreSQL
 systemctl restart postgresql-14
 
-7. Test login
-psql -h 192.168.56.61 -U devuser02 -d developers
+9. Test login
+psql -h 192.168.56.59 -U devuser02 -d developers
 \du+
-
+SET SESSION ROLE developers;
+CREATE DATABASE test;

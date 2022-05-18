@@ -3,7 +3,7 @@ LDAP integration
 ============================================================
 Prerequisite
 Edit /etc/openldap/ldap.conf and add the following details:
-TLS_CACERT=/vagrant/ssl/pem/ca-bundle.pem
+TLS_CACERT /vagrant/ssl/pem/ca-bundle.pem
 
 ============================================================
 LDAP authentication over SASL
@@ -12,12 +12,15 @@ LDAP authentication over SASL
 yum -y install cyrus-sasl
 
 2. Configure SASL to use LDAP by editing /etc/saslauthd.conf
-ldap_servers: ldaps://ldap.percona.local
+ldap_servers: ldap://ldap.percona.local
 ldap_mech: PLAIN
 ldap_search_base: dc=percona,dc=local
 ldap_filter: (cn=%u)
 ldap_bind_dn: cn=Manager,dc=percona,dc=local
 ldap_password: PerconaLiveAdmin2022
+ldap_start_tls: yes
+ldap_tls_cacert_dir: /vagrant/ssl/pem
+ldap_tls_cacert_file: /vagrant/ssl/pem/ca-bundle.pem
 
 3. Start saslauthd and make it run automatically at boot
 systemctl start saslauthd
@@ -87,6 +90,8 @@ security:
    transportSecurity: tls
    authz:
       queryTemplate: "dc=percona,dc=local??sub?(&(objectClass=group)(member={PROVIDED_USER}))"
+setParameter:
+ authenticationMechanisms: PLAIN,SCRAM-SHA-1
 
 3. Test authentication
 mongo -u "cn=dbauser01,cn=users,dc=percona,dc=local" -p "DbaUser01" --authenticationDatabase '$external' --authenticationMechanism 'PLAIN'
@@ -113,6 +118,9 @@ security:
           substitution: "CN={0},CN=Users,DC=percona,DC=local"
        }
      ]
+setParameter:
+ authenticationMechanisms: PLAIN,SCRAM-SHA-1
+
 5. Restart MongoDB
 systemctl restart mongod
 
@@ -124,6 +132,7 @@ mongo -u "dbauser03@percona.local" -p "DbaUser03" --authenticationDatabase '$ext
 X509 authentication and Native LDAP authorization
 ============================================================
 1. Create dbadmins and developers roles in MongoDB
+use admin
 db.createRole(
  {
    role: "CN=dbadmins,CN=Users,DC=percona,DC=local",
@@ -162,19 +171,24 @@ security:
       queryTemplate: "DC=percona,DC=local??sub?(&(objectClass=group)(member={PROVIDED_USER}))"
 setParameter:
   authenticationMechanisms: "PLAIN,MONGODB-X509"
+3. Create mongodb.pem from certificate and key
+cd /var/lib/mongocerts
+cat mongodb2-cert.pem mongodb2-key.pem > mongodb2.pem
+chmod 400 mongodb2.pem
+chown mongod:mongod mongodb2.pem
 
-3. Restart MongoDB
+4. Restart MongoDB
 systemctl restart mongod
 
-4. View client certificate
+5. View client certificate
 openssl x509 -noout -text -in /vagrant/ssl/mongodb/dbauser01-ad.pem
 
-5. Login with client certificate
-mongo --host mongodb2.percona.local --authenticationDatabase '$external' --authenticationMechanism 'MONGODB-X509' --tls --tlsCAFile /vagrant/ssl/pem/ca-bundle.pem --tlsCertificateKeyFile /vagrant/ssl/pem/mongodb/dbauser01-ad.pem
+6. Login with client certificate
+mongo --host mongodb2.percona.local --authenticationDatabase '$external' --authenticationMechanism 'MONGODB-X509' --tls --tlsCAFile /vagrant/ssl/pem/ca-bundle.pem --tlsCertificateKeyFile /vagrant/ssl/mongodb/dbauser01-ad.pem
 > db.runCommand({connectionStatus:1})
 
-mongo --host mongodb2.percona.local --authenticationDatabase '$external' --authenticationMechanism 'MONGODB-X509' --tls --tlsCAFile /vagrant/ssl/pem/ca-bundle.pem --tlsCertificateKeyFile /vagrant/ssl/pem/mongodb/devuser01-ad.pem
-
+mongo --host mongodb2.percona.local --authenticationDatabase '$external' --authenticationMechanism 'MONGODB-X509' --tls --tlsCAFile /vagrant/ssl/pem/ca-bundle.pem --tlsCertificateKeyFile /vagrant/ssl/mongodb/dbauser01-ad.pem
+> db.runCommand({connectionStatus:1})
 ============================================================
 Notes
 ============================================================
